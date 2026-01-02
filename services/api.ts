@@ -188,6 +188,25 @@ export const containersApi = {
 
     logs: (id: string, tail = 100) =>
         request<{ logs: string }>(`/containers/${id}/logs?tail=${tail}`),
+
+    stats: (id: string) =>
+        request<{
+            cpu_percent: number;
+            memory_usage: number;
+            memory_limit: number;
+            memory_percent: number;
+            network_rx: number;
+            network_tx: number;
+        }>(`/containers/${id}/stats`),
+
+    mounts: (id: string) =>
+        request<Array<{
+            type: string;
+            source: string;
+            destination: string;
+            mode: string;
+            rw: boolean;
+        }>>(`/containers/${id}/mounts`),
 };
 
 // Container Files API
@@ -236,6 +255,29 @@ export const containerFilesApi = {
             }
         );
     },
+
+    delete: (id: string, path: string) =>
+        request<{ status: string }>(`/containers/${id}/files?path=${encodeURIComponent(path)}`, {
+            method: 'DELETE',
+        }),
+
+    rename: (id: string, oldPath: string, newPath: string) =>
+        request<{ status: string; path: string }>(`/containers/${id}/files/rename`, {
+            method: 'POST',
+            body: JSON.stringify({ old_path: oldPath, new_path: newPath }),
+        }),
+
+    copy: (id: string, source: string, destination: string) =>
+        request<{ status: string; destination: string }>(`/containers/${id}/files/copy`, {
+            method: 'POST',
+            body: JSON.stringify({ source, destination }),
+        }),
+
+    move: (id: string, source: string, destination: string) =>
+        request<{ status: string; destination: string }>(`/containers/${id}/files/move`, {
+            method: 'POST',
+            body: JSON.stringify({ source, destination }),
+        }),
 };
 
 // Files API

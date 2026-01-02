@@ -31,6 +31,16 @@ export default function ContainerDetailScreen() {
     const [refreshing, setRefreshing] = React.useState(false);
     const [actionLoading, setActionLoading] = React.useState<string | null>(null);
 
+    // Stats
+    const [stats, setStats] = React.useState<{
+        cpu_percent: number;
+        memory_usage: number;
+        memory_limit: number;
+        memory_percent: number;
+        network_rx: number;
+        network_tx: number;
+    } | null>(null);
+
     const fetchContainer = async () => {
         try {
             // currently api.list() returns summary. We might need a specific get(id) endpoint.
@@ -54,8 +64,26 @@ export default function ContainerDetailScreen() {
         }
     };
 
+    const fetchStats = async () => {
+        if (!id) return;
+        try {
+            const data = await containersApi.stats(id);
+            setStats(data);
+        } catch (error) {
+            console.error('Failed to fetch stats:', error);
+        }
+    };
+
     React.useEffect(() => {
-        fetchContainer();
+        if (id) {
+            fetchContainer();
+            fetchStats();
+            // Refresh stats every 5 seconds if container is running
+            const interval = setInterval(() => {
+                fetchStats();
+            }, 5000);
+            return () => clearInterval(interval);
+        }
     }, [id]);
 
     const onRefresh = () => {
@@ -147,6 +175,62 @@ export default function ContainerDetailScreen() {
                         </View>
                     </View>
                 </View>
+
+                {/* Stats Card - Only show when container is running */}
+                {container.state === 'running' && stats && (
+                    <View className="bg-card border border-border rounded-xl p-4">
+                        <Text variant="title3" className="font-bold mb-3">Resource Usage</Text>
+                        <View className="gap-3">
+                            {/* CPU */}
+                            <View>
+                                <View className="flex-row justify-between mb-1">
+                                    <Text color="tertiary">CPU</Text>
+                                    <Text className="font-medium">{stats.cpu_percent.toFixed(1)}%</Text>
+                                </View>
+                                <View className="h-2 bg-muted rounded-full overflow-hidden">
+                                    <View
+                                        className="h-full bg-blue-500 rounded-full"
+                                        style={{ width: `${Math.min(stats.cpu_percent, 100)}%` }}
+                                    />
+                                </View>
+                            </View>
+
+                            {/* Memory */}
+                            <View>
+                                <View className="flex-row justify-between mb-1">
+                                    <Text color="tertiary">Memory</Text>
+                                    <Text className="font-medium">
+                                        {(stats.memory_usage / 1024 / 1024).toFixed(1)} MB / {(stats.memory_limit / 1024 / 1024 / 1024).toFixed(1)} GB
+                                    </Text>
+                                </View>
+                                <View className="h-2 bg-muted rounded-full overflow-hidden">
+                                    <View
+                                        className="h-full bg-green-500 rounded-full"
+                                        style={{ width: `${Math.min(stats.memory_percent, 100)}%` }}
+                                    />
+                                </View>
+                            </View>
+
+                            {/* Network */}
+                            <View className="flex-row justify-between pt-2 border-t border-border/50">
+                                <View className="flex-row items-center">
+                                    <MaterialCommunityIcons name="arrow-down" size={16} color={colors.grey} />
+                                    <Text color="tertiary" className="ml-1">RX: </Text>
+                                    <Text className="font-medium">
+                                        {(stats.network_rx / 1024 / 1024).toFixed(1)} MB
+                                    </Text>
+                                </View>
+                                <View className="flex-row items-center">
+                                    <MaterialCommunityIcons name="arrow-up" size={16} color={colors.grey} />
+                                    <Text color="tertiary" className="ml-1">TX: </Text>
+                                    <Text className="font-medium">
+                                        {(stats.network_tx / 1024 / 1024).toFixed(1)} MB
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                )}
 
                 {/* Control Actions */}
                 {/* Actions Grid */}
