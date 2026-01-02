@@ -1,0 +1,278 @@
+import * as React from 'react';
+import { View, ScrollView, RefreshControl, Alert, ActivityIndicator, Pressable, Platform } from 'react-native';
+import { Stack, useLocalSearchParams, router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+
+import { Text } from '@/components/nativewindui/Text';
+import { Button } from '@/components/nativewindui/Button';
+import { useColorScheme } from '@/lib/useColorScheme';
+import { deploymentsApi, containersApi } from '@/services/api';
+
+interface DeploymentDetail {
+    id: number;
+    project_name: string;
+    raw_yaml: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+}
+
+interface Container {
+    id: string;
+    name: string;
+    image: string;
+    status: string;
+    state: string;
+    project_name: string;
+    service_name: string;
+}
+
+export default function DeploymentDetailScreen() {
+    const { id } = useLocalSearchParams<{ id: string }>();
+    const { colors } = useColorScheme();
+
+    const [deployment, setDeployment] = React.useState<DeploymentDetail | null>(null);
+    const [containers, setContainers] = React.useState<Container[]>([]);
+
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [refreshing, setRefreshing] = React.useState(false);
+    const [actionLoading, setActionLoading] = React.useState<string | null>(null);
+
+    const fetchData = async () => {
+        try {
+            if (!id) return;
+            const depId = parseInt(id, 10);
+
+            // Parallel fetch
+            const [depData, allContainers] = await Promise.all([
+                deploymentsApi.get(depId),
+                containersApi.list()
+            ]);
+
+            setDeployment(depData);
+
+            // Filter containers for this project
+            const projectContainers = allContainers.filter(
+                c => c.project_name === depData.project_name
+            );
+            setContainers(projectContainers);
+
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to load deployment details');
+        } finally {
+            setIsLoading(false);
+            setRefreshing(false);
+        }
+    };
+
+    React.useEffect(() => {
+        fetchData();
+    }, [id]);
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchData();
+    };
+
+    const handleDeploy = async () => {
+        if (!deployment) return;
+        setActionLoading('deploy');
+        try {
+            const result = await deploymentsApi.deploy(deployment.id);
+            Alert.alert('Success', `Deployed ${result.containers?.length || 0} containers`);
+            fetchData();
+        } catch (error) {
+            Alert.alert('Deploy Failed', error instanceof Error ? error.message : 'Failed');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleDelete = () => {
+        if (!deployment) return;
+        Alert.alert(
+            'Delete Deployment',
+            `Delete "${deployment.project_name}"? This will remove all containers.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setActionLoading('delete');
+                        try {
+                            await deploymentsApi.delete(deployment.id);
+                            router.back();
+                        } catch (error) {
+                            Alert.alert('Error', error instanceof Error ? error.message : 'Failed to delete');
+                            setActionLoading(null);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleEdit = () => {
+        if (!deployment) return;
+        // Navigate to new/edit screen passing params
+        // Ideally we refactor new.tsx to accept initialYaml and projectName
+        // For now let's push with params, assuming new.tsx will be updated to handle them.
+        router.push({
+            pathname: '/deployments/new',
+            params: {
+                mode: 'edit',
+                id: deployment.id,
+                initialProjectName: deployment.project_name,
+                initialYaml: deployment.raw_yaml
+            }
+        });
+    };
+
+    const getStateColor = (status: string) => {
+        switch (status) {
+            case 'running': return 'bg-green-500';
+            case 'failed': return 'bg-red-500';
+            case 'deploying': return 'bg-yellow-500';
+            default: return 'bg-gray-500';
+        }
+    };
+
+    const getContainerStateBadgeColor = (state: string) => {
+        switch (state) {
+            case 'running': return 'bg-green-500/10 border-green-500/20';
+            case 'exited': return 'bg-red-500/10 border-red-500/20';
+            case 'restarting': return 'bg-yellow-500/10 border-yellow-500/20';
+            default: return 'bg-gray-500/10 border-gray-500/20';
+        }
+    };
+
+
+    if (isLoading) {
+        return (
+            <View className="flex-1 bg-background items-center justify-center">
+                <ActivityIndicator size="large" />
+            </View>
+        );
+    }
+
+    if (!deployment) {
+        return (
+            <View className="flex-1 bg-background items-center justify-center">
+                <Text>Deployment not found</Text>
+            </View>
+        );
+    }
+
+    return (
+        <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+            <Stack.Screen options={{ title: deployment.project_name, headerBackTitle: 'Back' }} />
+
+            <ScrollView
+                contentContainerClassName="p-4 gap-6"
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            >
+                {/* Status Card */}
+                <View className="bg-card border border-border rounded-xl p-4">
+                    <View className="flex-row items-center justify-between mb-4">
+                        <View className="flex-row items-center gap-3">
+                            <View className={`w-4 h-4 rounded-full ${getStateColor(deployment.status)}`} />
+                            <Text variant="title3" className="font-bold capitalize">{deployment.status}</Text>
+                        </View>
+                        <Text variant="caption1" color="tertiary">
+                            {new Date(deployment.updated_at).toLocaleString()}
+                        </Text>
+                    </View>
+
+                    <View className="flex-row gap-3">
+                        <Button
+                            className="flex-1"
+                            onPress={handleDeploy}
+                            disabled={!!actionLoading}
+                        >
+                            {actionLoading === 'deploy' ? <ActivityIndicator color="white" /> : (
+                                <>
+                                    <MaterialCommunityIcons name="play" size={18} color="white" className="mr-2" />
+                                    <Text className="text-white font-semibold">Deploy</Text>
+                                </>
+                            )}
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            className="flex-1 bg-red-500/10 border-red-500/20"
+                            onPress={handleDelete}
+                            disabled={!!actionLoading}
+                        >
+                            {actionLoading === 'delete' ? <ActivityIndicator color="#ef4444" /> : (
+                                <>
+                                    <MaterialCommunityIcons name="delete" size={18} color="#ef4444" className="mr-2" />
+                                    <Text className="text-red-500 font-semibold">Delete</Text>
+                                </>
+                            )}
+                        </Button>
+                    </View>
+
+                    <Button
+                        variant="plain"
+                        className="mt-2"
+                        onPress={handleEdit}
+                    >
+                        <MaterialCommunityIcons name="pencil" size={16} color={colors.primary} className="mr-2" />
+                        <Text className="text-primary">Edit Configuration</Text>
+                    </Button>
+                </View>
+
+                {/* Containers */}
+                <View>
+                    <Text variant="headline" className="mb-3 ml-1">Containers</Text>
+                    {containers.length === 0 ? (
+                        <View className="bg-card border border-dashed border-border rounded-xl p-6 items-center">
+                            <Text color="tertiary">No running containers</Text>
+                        </View>
+                    ) : (
+                        <View className="gap-3">
+                            {containers.map(c => (
+                                <Pressable
+                                    key={c.id}
+                                    onPress={() => router.push(`/containers/${c.id}`)}
+                                    className="bg-card border border-border rounded-xl p-4 active:bg-zinc-100 dark:active:bg-zinc-800"
+                                >
+                                    <View className="flex-row items-center justify-between mb-2">
+                                        <Text className="font-semibold">{c.name}</Text>
+                                        <View className={`px-2 py-0.5 rounded-full border ${getContainerStateBadgeColor(c.state)}`}>
+                                            <Text variant="caption2" className="capitalize">{c.state}</Text>
+                                        </View>
+                                    </View>
+
+                                    <View className="flex-row gap-4">
+                                        <View className="flex-row items-center gap-1">
+                                            <MaterialCommunityIcons name="server" size={14} color={colors.grey} />
+                                            <Text variant="caption1" color="tertiary">{c.service_name}</Text>
+                                        </View>
+                                        <View className="flex-row items-center gap-1 flex-1">
+                                            <MaterialCommunityIcons name="image" size={14} color={colors.grey} />
+                                            <Text variant="caption1" color="tertiary" numberOfLines={1}>{c.image}</Text>
+                                        </View>
+                                    </View>
+                                </Pressable>
+                            ))}
+                        </View>
+                    )}
+                </View>
+
+                {/* YAML Preview */}
+                <View>
+                    <Text variant="headline" className="mb-3 ml-1">Configuration</Text>
+                    <View className="bg-zinc-900 rounded-xl p-4">
+                        <Text className="font-mono text-xs text-zinc-300 leading-5" style={{ fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
+                            {deployment.raw_yaml}
+                        </Text>
+                    </View>
+                </View>
+
+            </ScrollView>
+        </SafeAreaView>
+    );
+}
