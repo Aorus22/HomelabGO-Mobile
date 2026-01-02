@@ -272,6 +272,22 @@ export default function ContainerDetailScreen() {
                             <Text className="font-semibold">Terminal</Text>
                         </Button>
                     </View>
+
+                    {/* Tools Grid - Row 3 (Files) */}
+                    <View className="flex-row gap-3">
+                        <Button
+                            variant="secondary"
+                            className="flex-1 rounded-lg bg-zinc-200 dark:bg-zinc-800 active:bg-zinc-300 dark:active:bg-zinc-700"
+                            androidRootClassName="flex-1"
+                            onPress={() => router.push({
+                                pathname: '/containers/[id]/files',
+                                params: { id: container.id }
+                            })}
+                        >
+                            <MaterialCommunityIcons name="folder-multiple-outline" size={20} color={colors.foreground} className="mr-2" />
+                            <Text className="font-semibold">Files</Text>
+                        </Button>
+                    </View>
                 </View>
 
                 {/* Environment Variables (Placeholder for now until Inspect API is ready) */}

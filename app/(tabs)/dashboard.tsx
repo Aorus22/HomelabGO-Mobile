@@ -88,7 +88,7 @@ export default function DashboardScreen() {
             {/* Welcome Card */}
             <View className="bg-card border border-border rounded-xl p-4">
                 <Text variant="title3" className="font-semibold mb-1">
-                    Selamat datang, {user?.username || 'User'}! 👋
+                    Selamat datang, {user?.username || 'User'}!
                 </Text>
                 <Text color="tertiary" variant="subhead">
                     Kelola homelab Anda dengan mudah

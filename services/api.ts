@@ -38,10 +38,14 @@ async function request<T>(
 ): Promise<T> {
     const token = await tokenStorage.get();
 
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        ...options.headers,
+        ...(options.headers as Record<string, string>),
     };
+
+    if (options.body instanceof FormData) {
+        delete headers['Content-Type'];
+    }
 
     if (token) {
         (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
@@ -184,6 +188,54 @@ export const containersApi = {
 
     logs: (id: string, tail = 100) =>
         request<{ logs: string }>(`/containers/${id}/logs?tail=${tail}`),
+};
+
+// Container Files API
+export const containerFilesApi = {
+    list: (id: string, path: string = '/') =>
+        request<Array<{
+            name: string;
+            path: string;
+            is_dir: boolean;
+            is_symlink: boolean;
+            size: number;
+            mode: string;
+            mod_time: string;
+        }>>(`/containers/${id}/files?path=${encodeURIComponent(path)}`),
+
+    getContent: (id: string, path: string) =>
+        request<{ path: string; content: string }>(
+            `/containers/${id}/files/content?path=${encodeURIComponent(path)}`
+        ),
+
+    saveContent: (id: string, path: string, content: string) =>
+        request<{ status: string }>(`/containers/${id}/files?path=${encodeURIComponent(path)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ content }),
+        }),
+
+    mkdir: (id: string, path: string) =>
+        request<{ status: string; path: string }>(`/containers/${id}/files/mkdir`, {
+            method: 'POST',
+            body: JSON.stringify({ path }),
+        }),
+
+    upload: (id: string, path: string, file: any) => {
+        const formData = new FormData();
+        formData.append('file', {
+            uri: file.uri,
+            name: file.name,
+            type: file.mimeType || 'application/octet-stream',
+        } as any);
+
+        return request<{ status: string; path: string }>(
+            `/containers/${id}/files/upload?path=${encodeURIComponent(path)}`,
+            {
+                method: 'POST',
+                body: formData,
+            }
+        );
+    },
 };
 
 // Files API
