@@ -45,9 +45,6 @@ export default function DashboardScreen() {
 
     React.useEffect(() => {
         fetchData();
-        // Auto-refresh every 10 seconds
-        const interval = setInterval(fetchData, 10000);
-        return () => clearInterval(interval);
     }, []);
 
     const onRefresh = () => {

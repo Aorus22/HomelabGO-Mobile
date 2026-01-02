@@ -39,8 +39,6 @@ export default function ContainersScreen() {
 
     React.useEffect(() => {
         fetchContainers();
-        const interval = setInterval(fetchContainers, 5000);
-        return () => clearInterval(interval);
     }, []);
 
     const onRefresh = () => {

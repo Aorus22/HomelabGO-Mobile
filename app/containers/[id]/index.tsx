@@ -41,6 +41,15 @@ export default function ContainerDetailScreen() {
         network_tx: number;
     } | null>(null);
 
+    // Mounts
+    const [mounts, setMounts] = React.useState<Array<{
+        type: string;
+        source: string;
+        destination: string;
+        mode: string;
+        rw: boolean;
+    }>>([]);
+
     const fetchContainer = async () => {
         try {
             // currently api.list() returns summary. We might need a specific get(id) endpoint.
@@ -74,15 +83,21 @@ export default function ContainerDetailScreen() {
         }
     };
 
+    const fetchMounts = async () => {
+        if (!id) return;
+        try {
+            const data = await containersApi.mounts(id);
+            setMounts(data);
+        } catch (error) {
+            console.error('Failed to fetch mounts:', error);
+        }
+    };
+
     React.useEffect(() => {
         if (id) {
             fetchContainer();
             fetchStats();
-            // Refresh stats every 5 seconds if container is running
-            const interval = setInterval(() => {
-                fetchStats();
-            }, 5000);
-            return () => clearInterval(interval);
+            fetchMounts();
         }
     }, [id]);
 
@@ -228,6 +243,35 @@ export default function ContainerDetailScreen() {
                                     </Text>
                                 </View>
                             </View>
+                        </View>
+                    </View>
+                )}
+
+                {/* Mounts Card */}
+                {mounts.length > 0 && (
+                    <View className="bg-card border border-border rounded-xl p-4">
+                        <Text variant="title3" className="font-bold mb-3">Mounts / Volumes</Text>
+                        <View className="gap-3">
+                            {mounts.map((mount, index) => (
+                                <View key={index} className="border-b border-border/50 pb-2 last:border-b-0">
+                                    <View className="flex-row items-center justify-between mb-1">
+                                        <View className="flex-row items-center gap-2">
+                                            <MaterialCommunityIcons
+                                                name={mount.type === 'volume' ? 'database' : 'folder'}
+                                                size={16}
+                                                color={colors.primary}
+                                            />
+                                            <Text className="font-medium">{mount.destination}</Text>
+                                        </View>
+                                        <View className="bg-muted px-2 py-0.5 rounded text-xs">
+                                            <Text variant="caption2">{mount.mode || (mount.rw ? 'rw' : 'ro')}</Text>
+                                        </View>
+                                    </View>
+                                    <Text variant="caption1" color="tertiary" className="font-mono ml-6">
+                                        {mount.source}
+                                    </Text>
+                                </View>
+                            ))}
                         </View>
                     </View>
                 )}

@@ -108,6 +108,23 @@ export const volumesApi = {
 
     delete: (id: number) =>
         request<{ message: string }>(`/volumes/${id}`, { method: 'DELETE' }),
+
+    downloadUrl: (id: number) => `${API_BASE_URL}/volumes/${id}/download`,
+
+    upload: (name: string, file: any) => {
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('file', {
+            uri: file.uri,
+            name: file.name,
+            type: file.mimeType || 'application/gzip',
+        } as any);
+
+        return request<{ id: number; name: string; mount_path: string }>('/volumes/upload', {
+            method: 'POST',
+            body: formData,
+        });
+    },
 };
 
 // Deployments API
