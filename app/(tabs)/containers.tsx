@@ -6,7 +6,7 @@ import { Text } from '@/components/nativewindui/Text';
 import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { containersApi } from '@/services/api';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 interface Container {
     id: string;
@@ -37,9 +37,11 @@ export default function ContainersScreen() {
         }
     };
 
-    React.useEffect(() => {
-        fetchContainers();
-    }, []);
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchContainers();
+        }, [])
+    );
 
     const onRefresh = () => {
         setRefreshing(true);

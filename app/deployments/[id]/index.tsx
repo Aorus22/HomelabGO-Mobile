@@ -90,15 +90,29 @@ export default function DeploymentDetailScreen() {
         }
     };
 
-    const handleDelete = () => {
+    const handleStop = async () => {
+        if (!deployment) return;
+        setActionLoading('stop');
+        try {
+            await deploymentsApi.stop(deployment.id);
+            Alert.alert('Success', 'Deployment stopped');
+            fetchData();
+        } catch (error) {
+            Alert.alert('Stop Failed', error instanceof Error ? error.message : 'Failed');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleRemove = () => {
         if (!deployment) return;
         Alert.alert(
-            'Delete Deployment',
-            `Delete "${deployment.project_name}"? This will remove all containers.`,
+            'Remove Deployment',
+            `Remove "${deployment.project_name}"? This will delete the project configuration and containers.`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                    text: 'Delete',
+                    text: 'Remove',
                     style: 'destructive',
                     onPress: async () => {
                         setActionLoading('delete');
@@ -106,7 +120,7 @@ export default function DeploymentDetailScreen() {
                             await deploymentsApi.delete(deployment.id);
                             router.back();
                         } catch (error) {
-                            Alert.alert('Error', error instanceof Error ? error.message : 'Failed to delete');
+                            Alert.alert('Error', error instanceof Error ? error.message : 'Failed to remove');
                             setActionLoading(null);
                         }
                     },
@@ -117,9 +131,6 @@ export default function DeploymentDetailScreen() {
 
     const handleEdit = () => {
         if (!deployment) return;
-        // Navigate to new/edit screen passing params
-        // Ideally we refactor new.tsx to accept initialYaml and projectName
-        // For now let's push with params, assuming new.tsx will be updated to handle them.
         router.push({
             pathname: '/deployments/new',
             params: {
@@ -133,38 +144,59 @@ export default function DeploymentDetailScreen() {
 
     const getStateColor = (status: string) => {
         switch (status) {
-            case 'running': return 'bg-green-500';
-            case 'failed': return 'bg-red-500';
-            case 'deploying': return 'bg-yellow-500';
-            default: return 'bg-gray-500';
+            case 'running':
+                return 'bg-green-500';
+            case 'stopped':
+                return 'bg-red-500';
+            case 'deploying':
+                return 'bg-blue-500';
+            case 'error':
+                return 'bg-red-700';
+            default:
+                return 'bg-gray-500';
         }
     };
 
     const getContainerStateBadgeColor = (state: string) => {
         switch (state) {
-            case 'running': return 'bg-green-500/10 border-green-500/20';
-            case 'exited': return 'bg-red-500/10 border-red-500/20';
-            case 'restarting': return 'bg-yellow-500/10 border-yellow-500/20';
-            default: return 'bg-gray-500/10 border-gray-500/20';
+            case 'running':
+                return 'border-green-500 text-green-500';
+            case 'exited':
+                return 'border-red-500 text-red-500';
+            case 'restarting':
+                return 'border-orange-500 text-orange-500';
+            case 'paused':
+                return 'border-gray-500 text-gray-500';
+            default:
+                return 'border-gray-500 text-gray-500';
         }
     };
 
+    const handleStart = async () => {
+        if (!deployment) return;
+        setActionLoading('start');
+        try {
+            const result = await deploymentsApi.start(deployment.id);
+            Alert.alert('Success', result.message);
+            fetchData();
+        } catch (error) {
+            Alert.alert('Start Failed', error instanceof Error ? error.message : 'Failed');
+        } finally {
+            setActionLoading(null);
+        }
+    };
 
-    if (isLoading) {
+    if (isLoading || !deployment) {
         return (
-            <View className="flex-1 bg-background items-center justify-center">
-                <ActivityIndicator size="large" />
-            </View>
+            <SafeAreaView className="flex-1 bg-background justify-center items-center">
+                <ActivityIndicator size="large" color={colors.primary} />
+            </SafeAreaView>
         );
     }
 
-    if (!deployment) {
-        return (
-            <View className="flex-1 bg-background items-center justify-center">
-                <Text>Deployment not found</Text>
-            </View>
-        );
-    }
+    const isRunning = deployment.status === 'running';
+    const isStopped = deployment.status === 'stopped' || deployment.status === 'exited' || deployment.status === 'created' || deployment.status === 'failed';
+    const isPending = deployment.status === 'pending'; // Initial state
 
     return (
         <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -175,58 +207,96 @@ export default function DeploymentDetailScreen() {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
                 {/* Status Card */}
-                <View className="bg-card border border-border rounded-xl p-4">
-                    <View className="flex-row items-center justify-between mb-4">
-                        <View className="flex-row items-center gap-3">
-                            <View className={`w-4 h-4 rounded-full ${getStateColor(deployment.status)}`} />
-                            <Text variant="title3" className="font-bold capitalize">{deployment.status}</Text>
-                        </View>
-                        <Text variant="caption1" color="tertiary">
-                            {new Date(deployment.updated_at).toLocaleString()}
-                        </Text>
+                <View className="bg-card border border-border rounded-xl p-4 items-center">
+                    <View className="flex-row items-center gap-3 mb-2">
+                        <View className={`w-4 h-4 rounded-full ${getStateColor(deployment.status)}`} />
+                        <Text variant="title3" className="font-bold capitalize">{deployment.status}</Text>
                     </View>
+                    <Text variant="caption1" color="tertiary" className="mb-6">
+                        Updated: {new Date(deployment.updated_at).toLocaleString()}
+                    </Text>
 
-                    <View className="flex-row gap-3">
-                        <Button
-                            className="flex-1"
-                            onPress={handleDeploy}
-                            disabled={!!actionLoading}
-                        >
-                            {actionLoading === 'deploy' ? <ActivityIndicator color="white" /> : (
-                                <>
-                                    <MaterialCommunityIcons name="play" size={18} color="white" className="mr-2" />
-                                    <Text className="text-white font-semibold">Deploy</Text>
-                                </>
-                            )}
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            className="flex-1 bg-red-500/10 border-red-500/20"
-                            onPress={handleDelete}
-                            disabled={!!actionLoading}
-                        >
-                            {actionLoading === 'delete' ? <ActivityIndicator color="#ef4444" /> : (
-                                <>
-                                    <MaterialCommunityIcons name="delete" size={18} color="#ef4444" className="mr-2" />
-                                    <Text className="text-red-500 font-semibold">Delete</Text>
-                                </>
-                            )}
-                        </Button>
+                    {/* Actions */}
+                    <View className="w-full gap-3 mt-4">
+                        {isRunning && (
+                            <Button
+                                className="w-full bg-red-500 py-4"
+                                size="lg"
+                                onPress={handleStop}
+                                disabled={!!actionLoading}
+                            >
+                                {actionLoading === 'stop' ? <ActivityIndicator color="white" /> : (
+                                    <View className="flex-row items-center justify-center">
+                                        <MaterialCommunityIcons name="stop" size={24} color="white" className="mr-2" />
+                                        <Text className="text-white font-bold text-lg">Stop</Text>
+                                    </View>
+                                )}
+                            </Button>
+                        )}
+
+                        {isStopped && (
+                            <View className="flex-row gap-3">
+                                <Button
+                                    className="flex-1 bg-primary py-4"
+                                    size="lg"
+                                    onPress={handleStart}
+                                    disabled={!!actionLoading}
+                                >
+                                    {actionLoading === 'start' ? <ActivityIndicator color="white" /> : (
+                                        <View className="flex-row items-center justify-center">
+                                            <MaterialCommunityIcons name="play" size={24} color="white" className="mr-2" />
+                                            <Text className="text-white font-bold text-lg">Start</Text>
+                                        </View>
+                                    )}
+                                </Button>
+                                <Button
+                                    className="flex-1 bg-red-500/10 border-red-500/20 py-4"
+                                    size="lg"
+                                    onPress={handleRemove}
+                                    disabled={!!actionLoading}
+                                >
+                                    {actionLoading === 'delete' ? <ActivityIndicator color="#ef4444" /> : (
+                                        <View className="flex-row items-center justify-center">
+                                            <MaterialCommunityIcons name="trash-can" size={24} color="#ef4444" className="mr-2" />
+                                            <Text className="text-red-500 font-bold text-lg">Remove</Text>
+                                        </View>
+                                    )}
+                                </Button>
+                            </View>
+                        )}
+
+                        {isPending && (
+                            <Button
+                                className="w-full bg-primary py-4"
+                                size="lg"
+                                onPress={handleDeploy}
+                                disabled={!!actionLoading}
+                            >
+                                {actionLoading === 'deploy' ? <ActivityIndicator color="white" /> : (
+                                    <View className="flex-row items-center justify-center">
+                                        <MaterialCommunityIcons name="rocket-launch" size={24} color="white" className="mr-2" />
+                                        <Text className="text-white font-bold text-lg">Deploy</Text>
+                                    </View>
+                                )}
+                            </Button>
+                        )}
+
+                        {!isRunning && (
+                            <Button
+                                variant="plain"
+                                className="mt-2 self-center"
+                                onPress={handleEdit}
+                            >
+                                <MaterialCommunityIcons name="pencil" size={18} color={colors.primary} className="mr-2" />
+                                <Text className="text-primary font-medium">Edit Configuration</Text>
+                            </Button>
+                        )}
                     </View>
-
-                    <Button
-                        variant="plain"
-                        className="mt-2"
-                        onPress={handleEdit}
-                    >
-                        <MaterialCommunityIcons name="pencil" size={16} color={colors.primary} className="mr-2" />
-                        <Text className="text-primary">Edit Configuration</Text>
-                    </Button>
                 </View>
 
                 {/* Containers */}
                 <View>
-                    <Text variant="headline" className="mb-3 ml-1">Containers</Text>
+                    <Text variant="heading" className="mb-3 ml-1">Containers</Text>
                     {containers.length === 0 ? (
                         <View className="bg-card border border-dashed border-border rounded-xl p-6 items-center">
                             <Text color="tertiary">No running containers</Text>
@@ -264,7 +334,7 @@ export default function DeploymentDetailScreen() {
 
                 {/* YAML Preview */}
                 <View>
-                    <Text variant="headline" className="mb-3 ml-1">Configuration</Text>
+                    <Text variant="heading" className="mb-3 ml-1">Configuration</Text>
                     <View className="bg-zinc-900 rounded-xl p-4">
                         <Text className="font-mono text-xs text-zinc-300 leading-5" style={{ fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
                             {deployment.raw_yaml}

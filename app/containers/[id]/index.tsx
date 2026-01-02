@@ -52,15 +52,7 @@ export default function ContainerDetailScreen() {
 
     const fetchContainer = async () => {
         try {
-            // currently api.list() returns summary. We might need a specific get(id) endpoint.
-            // For now, filtering from list or assuming we modify backend later. 
-            // Actually, usually /containers/json is list, /containers/{id}/json is inspect.
-            // Let's assume we have `containersApi.get(id)` or similar. 
-            // If not, I'll implementing it or rely on list filtering for now.
-            // Checking api.ts... it has 'list', 'start', 'stop', 'restart', 'logs'. 
-            // I'll add 'get' to api.ts properly later. For now let's use list and find.
-            // Wait, standard docker API has inspect. I should probably add it. 
-            // For this iteration, I'll assume list contains basic info and I'll display that.
+            // Fetch container list
             const data = await containersApi.list();
             const found = data.find((c: any) => c.id === id || c.id.startsWith(id));
             setContainer(found || null);

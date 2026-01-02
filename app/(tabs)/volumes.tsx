@@ -7,6 +7,7 @@ import { downloadAsync, documentDirectory } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
 import { Text } from '@/components/nativewindui/Text';
+import { useFocusEffect } from 'expo-router';
 import { Button } from '@/components/nativewindui/Button';
 import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
 import { useColorScheme } from '@/lib/useColorScheme';
@@ -48,9 +49,11 @@ export default function VolumesScreen() {
         }
     };
 
-    React.useEffect(() => {
-        fetchVolumes();
-    }, []);
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchVolumes();
+        }, [])
+    );
 
     const onRefresh = () => {
         setRefreshing(true);

@@ -161,17 +161,21 @@ export const deploymentsApi = {
     delete: (id: number) =>
         request<{ message: string }>(`/deployments/${id}`, { method: 'DELETE' }),
 
-    validate: (raw_yaml: string) =>
-        request<{ valid: boolean; error?: string; services?: string[] }>('/deployments/0/validate', {
+    validate: (id: number, yaml: string) =>
+        request<{ valid: boolean; error?: string; services?: string[] }>(`/deployments/${id}/validate`, {
             method: 'POST',
-            body: JSON.stringify({ raw_yaml }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ raw_yaml: yaml }),
         }),
 
     deploy: (id: number) =>
-        request<{ message: string; status: string; containers: Array<{ id: string; name: string }> }>(
-            `/deployments/${id}/deploy`,
-            { method: 'POST' }
-        ),
+        request<{ message: string; containers: any[] }>(`/deployments/${id}/deploy`, { method: 'POST' }),
+
+    stop: (id: number) =>
+        request<{ message: string }>(`/deployments/${id}/stop`, { method: 'POST' }),
+
+    start: (id: number) =>
+        request<{ message: string }>(`/deployments/${id}/start`, { method: 'POST' }),
 };
 
 // Containers API

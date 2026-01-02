@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { View, ScrollView, RefreshControl } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 import { Text } from '@/components/nativewindui/Text';
 import { ProgressIndicator } from '@/components/nativewindui/ProgressIndicator';
@@ -43,9 +43,11 @@ export default function DashboardScreen() {
         }
     };
 
-    React.useEffect(() => {
-        fetchData();
-    }, []);
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchData();
+        }, [])
+    );
 
     const onRefresh = () => {
         setRefreshing(true);
