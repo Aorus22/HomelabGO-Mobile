@@ -1,7 +1,8 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE_URL = 'https://dev.alyza.dev';
+const SERVER_URL_KEY = 'server_url';
+export let API_BASE_URL = 'https://dev.alyza.dev'; // Default fallback
 
 const TOKEN_KEY = 'auth_token';
 
@@ -30,6 +31,40 @@ export const tokenStorage = {
         }
     },
 };
+
+// Server URL storage
+export const serverStorage = {
+    async get(): Promise<string | null> {
+        if (Platform.OS === 'web') {
+            return localStorage.getItem(SERVER_URL_KEY);
+        }
+        return SecureStore.getItemAsync(SERVER_URL_KEY);
+    },
+
+    async set(url: string): Promise<void> {
+        // Ensure no trailing slash
+        const cleanUrl = url.replace(/\/$/, '');
+        API_BASE_URL = cleanUrl; // Update in-memory
+        if (Platform.OS === 'web') {
+            localStorage.setItem(SERVER_URL_KEY, cleanUrl);
+        } else {
+            await SecureStore.setItemAsync(SERVER_URL_KEY, cleanUrl);
+        }
+    },
+
+    async remove(): Promise<void> {
+        if (Platform.OS === 'web') {
+            localStorage.removeItem(SERVER_URL_KEY);
+        } else {
+            await SecureStore.deleteItemAsync(SERVER_URL_KEY);
+        }
+    },
+};
+
+// Initialize API_BASE_URL from storage
+serverStorage.get().then(url => {
+    if (url) API_BASE_URL = url;
+});
 
 // API request helper
 async function request<T>(
@@ -88,6 +123,18 @@ export const systemApi = {
         disk_percent: number;
         host_info: Record<string, unknown>;
     }>('/system/stats'),
+
+    validateServer: async (url: string) => {
+        const cleanUrl = url.replace(/\/$/, '');
+        try {
+            const response = await fetch(`${cleanUrl}/health`);
+            if (!response.ok) return false;
+            const data = await response.json();
+            return data.status === 'ok';
+        } catch (e) {
+            return false;
+        }
+    },
 };
 
 // Volumes API
@@ -109,7 +156,10 @@ export const volumesApi = {
     delete: (id: number) =>
         request<{ message: string }>(`/volumes/${id}`, { method: 'DELETE' }),
 
-    downloadUrl: (id: number) => `${API_BASE_URL}/volumes/${id}/download`,
+    getDownloadUrl: async (id: number) => {
+        const baseUrl = await serverStorage.get() || API_BASE_URL;
+        return `${baseUrl}/volumes/${id}/download`;
+    },
 
     upload: (name: string, file: any) => {
         const formData = new FormData();
@@ -348,10 +398,11 @@ export const cloudflareApi = {
 };
 
 // WebSocket helper
-export function createWebSocket(endpoint: string, token: string | null): WebSocket {
-    const wsUrl = API_BASE_URL.replace('http', 'ws');
+export async function createWebSocket(endpoint: string, token: string | null): Promise<WebSocket> {
+    const baseUrl = await serverStorage.get() || API_BASE_URL;
+    const wsUrl = baseUrl.replace('http', 'ws');
     const separator = endpoint.includes('?') ? '&' : '?';
     return new WebSocket(`${wsUrl}${endpoint}${separator}token=${token || ''}`);
 }
 
-export { API_BASE_URL };
+

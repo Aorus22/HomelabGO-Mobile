@@ -5,23 +5,30 @@ import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/nativewindui/Text';
-import { API_BASE_URL, tokenStorage } from '@/services/api';
+import { API_BASE_URL, tokenStorage, serverStorage } from '@/services/api';
 
 export default function ContainerLogsScreen() {
     const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
     const [token, setToken] = React.useState<string | null>(null);
     const webViewRef = React.useRef<WebView>(null);
     const iframeRef = React.useRef<HTMLIFrameElement>(null);
+    const [serverUrl, setServerUrl] = React.useState<string | null>(null);
 
     React.useEffect(() => {
-        tokenStorage.get().then(setToken);
+        const init = async () => {
+            const t = await tokenStorage.get();
+            const url = await serverStorage.get() || API_BASE_URL;
+            setToken(t);
+            setServerUrl(url);
+        };
+        init();
     }, []);
 
     const htmlContent = React.useMemo(() => {
-        if (!token || !id) return '';
+        if (!token || !id || !serverUrl) return '';
 
-        const wsProtocol = API_BASE_URL.startsWith('https') ? 'wss' : 'ws';
-        const wsBase = API_BASE_URL.replace(/https?:\/\//, '');
+        const wsProtocol = serverUrl.startsWith('https') ? 'wss' : 'ws';
+        const wsBase = serverUrl.replace(/https?:\/\//, '');
         // WebSocket endpoint for logs
         const wsUrl = `${wsProtocol}://${wsBase}/ws/logs/${id}?token=${token}`;
 

@@ -8,6 +8,8 @@ import { Text } from '@/components/nativewindui/Text';
 import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
 import { useAuth } from '@/context/auth';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { API_BASE_URL, serverStorage } from '@/services/api';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 export default function RegisterScreen() {
     const insets = useSafeAreaInsets();
@@ -18,6 +20,11 @@ export default function RegisterScreen() {
     const [password, setPassword] = React.useState('');
     const [confirmPassword, setConfirmPassword] = React.useState('');
     const [localError, setLocalError] = React.useState('');
+    const [serverUrl, setServerUrl] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        serverStorage.get().then(url => setServerUrl(url || API_BASE_URL));
+    }, []);
 
     const handleRegister = async () => {
         if (!username.trim() || !password) {
@@ -137,6 +144,24 @@ export default function RegisterScreen() {
                             <Text className="text-primary font-semibold">Login</Text>
                         </Pressable>
                     </Link>
+                </View>
+
+                {/* Server Info */}
+                <View className="mt-8 pt-4 border-t border-border items-center">
+                    <Text variant="caption1" color="tertiary" className="mb-1">
+                        Connected to:
+                    </Text>
+                    <View className="flex-row items-center">
+                        <MaterialCommunityIcons name="server" size={12} color={colors.grey} style={{ marginRight: 6 }} />
+                        <Text variant="caption1" className="font-semibold mr-2">
+                            {serverUrl?.replace(/^https?:\/\//, '') || 'Default Server'}
+                        </Text>
+                        <Link href="/server-config" asChild>
+                            <Pressable hitSlop={10}>
+                                <Text variant="caption1" className="text-primary font-medium">Change</Text>
+                            </Pressable>
+                        </Link>
+                    </View>
                 </View>
             </View>
         </KeyboardAvoidingView>

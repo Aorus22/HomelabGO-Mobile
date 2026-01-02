@@ -11,7 +11,7 @@ import { useFocusEffect } from 'expo-router';
 import { Button } from '@/components/nativewindui/Button';
 import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
 import { useColorScheme } from '@/lib/useColorScheme';
-import { volumesApi, API_BASE_URL, tokenStorage } from '@/services/api';
+import { volumesApi, tokenStorage } from '@/services/api';
 
 interface Volume {
     id: number;
@@ -127,7 +127,7 @@ export default function VolumesScreen() {
     const handleDownload = async (volume: Volume) => {
         try {
             const token = await tokenStorage.get();
-            const downloadUrl = `${API_BASE_URL}/volumes/${volume.id}/download`;
+            const downloadUrl = await volumesApi.getDownloadUrl(volume.id);
             const fileUri = documentDirectory + `${volume.name}.tar.gz`;
 
             Alert.alert('Downloading', 'Please wait...');

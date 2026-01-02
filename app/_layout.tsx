@@ -18,20 +18,38 @@ export {
 } from 'expo-router';
 
 function AuthHandler({ children }: { children: React.ReactNode }) {
+  const [isServerConfigured, setIsServerConfigured] = React.useState(true); // Default true to avoid flash
   const { isAuthenticated, isLoading, loadToken } = useAuth();
   const segments = useSegments();
 
   React.useEffect(() => {
-    loadToken();
+    // Check server config
+    import('@/services/api').then(({ serverStorage }) => {
+      serverStorage.get().then(url => {
+        if (!url) {
+          setIsServerConfigured(false);
+          router.replace('/server-config');
+        } else {
+          setIsServerConfigured(true);
+          loadToken();
+        }
+      });
+    });
   }, []);
 
   React.useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !isServerConfigured) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     const inTabsGroup = segments[0] === '(tabs)';
+    const inServerConfig = segments[0] === 'server-config';
 
-    if (!isAuthenticated && inTabsGroup) {
+    if (inServerConfig && isServerConfigured && !isAuthenticated) {
+      //If server is configured, move to login. 
+      //But user might want to change config, so we should allow staying if manually navigated?
+      //For now, auto redirect to login if configured.
+      router.replace('/(auth)/login');
+    } else if (!isAuthenticated && inTabsGroup) {
       // User is not authenticated but is in protected area
       router.replace('/(auth)/login');
     } else if (isAuthenticated && inAuthGroup) {
@@ -44,7 +62,7 @@ function AuthHandler({ children }: { children: React.ReactNode }) {
       // User is at root and authenticated
       router.replace('/(tabs)/dashboard');
     }
-  }, [isAuthenticated, isLoading, segments]);
+  }, [isAuthenticated, isLoading, segments, isServerConfigured]);
 
   if (isLoading) {
     return (
