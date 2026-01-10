@@ -83,10 +83,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 try {
                     const userData = await authApi.me();
                     setUser(userData as User);
-                } catch (e) {
-                    // Token might be invalid, logout
+                } catch (e: any) {
+                    // Only logout on auth errors, not server/network errors
                     console.error('Failed to fetch user profile', e);
-                    await logout();
+                    const msg = (e.message || '').toLowerCase();
+                    if (msg.includes('invalid') || msg.includes('unauthorized') || msg.includes('expired')) {
+                        await logout();
+                    }
+                    // Otherwise keep token but user might be null (handled by UI)
                 }
             }
         } catch (e) {

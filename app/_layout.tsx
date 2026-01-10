@@ -18,12 +18,11 @@ export {
 } from 'expo-router';
 
 function AuthHandler({ children }: { children: React.ReactNode }) {
-  const [isServerConfigured, setIsServerConfigured] = React.useState(true); // Default true to avoid flash
-  const { isAuthenticated, isLoading, loadToken } = useAuth();
+  const [isServerConfigured, setIsServerConfigured] = React.useState(true);
+  const { isAuthenticated, isLoading, user, loadToken } = useAuth();
   const segments = useSegments();
 
   React.useEffect(() => {
-    // Check server config
     import('@/services/api').then(({ serverStorage }) => {
       serverStorage.get().then(url => {
         if (!url) {
@@ -42,27 +41,44 @@ function AuthHandler({ children }: { children: React.ReactNode }) {
 
     const inAuthGroup = segments[0] === '(auth)';
     const inTabsGroup = segments[0] === '(tabs)';
+    const inAdminGroup = segments[0] === '(admin)';
     const inServerConfig = segments[0] === 'server-config';
 
-    if (inServerConfig && isServerConfigured && !isAuthenticated) {
-      //If server is configured, move to login. 
-      //But user might want to change config, so we should allow staying if manually navigated?
-      //For now, auto redirect to login if configured.
-      router.replace('/(auth)/login');
-    } else if (!isAuthenticated && inTabsGroup) {
+    const isAdmin = user?.role === 'admin';
+
+    // Allow access to server-config page always
+    if (inServerConfig) {
+      return;
+    }
+
+    if (!isAuthenticated && (inTabsGroup || inAdminGroup)) {
       // User is not authenticated but is in protected area
       router.replace('/(auth)/login');
     } else if (isAuthenticated && inAuthGroup) {
-      // User is authenticated but is in auth area
-      router.replace('/(tabs)/dashboard');
+      // User is authenticated but is in auth area - redirect based on role
+      if (isAdmin) {
+        router.replace('/(admin)/dashboard');
+      } else {
+        router.replace('/(tabs)/dashboard');
+      }
     } else if (!isAuthenticated && !segments[0]) {
       // User is at root and not authenticated
       router.replace('/(auth)/login');
     } else if (isAuthenticated && !segments[0]) {
-      // User is at root and authenticated
+      // User is at root and authenticated - redirect based on role
+      if (isAdmin) {
+        router.replace('/(admin)/dashboard');
+      } else {
+        router.replace('/(tabs)/dashboard');
+      }
+    } else if (isAuthenticated && isAdmin && inTabsGroup) {
+      // Admin is in user tabs - redirect to admin
+      router.replace('/(admin)/dashboard');
+    } else if (isAuthenticated && !isAdmin && inAdminGroup) {
+      // Non-admin is in admin area - redirect to user tabs
       router.replace('/(tabs)/dashboard');
     }
-  }, [isAuthenticated, isLoading, segments, isServerConfigured]);
+  }, [isAuthenticated, isLoading, segments, isServerConfigured, user]);
 
   if (isLoading) {
     return (
@@ -92,6 +108,7 @@ export default function RootLayout() {
                 <Stack screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="(auth)" />
                   <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="(admin)" />
                 </Stack>
               </AuthHandler>
             </AuthProvider>
@@ -101,3 +118,4 @@ export default function RootLayout() {
     </>
   );
 }
+

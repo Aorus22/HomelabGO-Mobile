@@ -86,7 +86,9 @@ async function request<T>(
         (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const finalUrl = `${API_BASE_URL}${endpoint}`;
+
+    const response = await fetch(finalUrl, {
         ...options,
         headers,
     });
@@ -432,6 +434,249 @@ export const envFilesApi = {
 
     delete: (id: number) =>
         request<{ message: string }>(`/envfiles/${id}`, { method: 'DELETE' }),
+};
+
+// Admin API
+export const adminApi = {
+    // Files
+    listFiles: (path: string = '/') =>
+        request<{
+            path: string;
+            files: Array<{
+                name: string;
+                path: string;
+                is_dir: boolean;
+                size: number;
+                mod_time: string;
+            }>;
+        }>(`/admin/files?path=${encodeURIComponent(path)}`),
+
+    getFile: (path: string) =>
+        request<{
+            path: string;
+            content: string;
+            size: number;
+            mod_time: string;
+        }>(`/admin/files/content?path=${encodeURIComponent(path)}`),
+
+    saveFile: (path: string, content: string) =>
+        request<{ message: string }>('/admin/files/content', {
+            method: 'POST',
+            body: JSON.stringify({ path, content }),
+        }),
+
+    // Docker
+    listDockerContainers: () =>
+        request<Array<{
+            id: string;
+            name: string;
+            image: string;
+            state: string;
+            status: string;
+            created: number;
+            project_name: string;
+            is_managed: boolean;
+        }>>('/admin/docker/containers'),
+
+    listDockerImages: () =>
+        request<Array<{
+            id: string;
+            tags: string[];
+            size: number;
+            created: number;
+            is_managed: boolean;
+        }>>('/admin/docker/images'),
+
+    listDockerNetworks: () =>
+        request<Array<{
+            id: string;
+            name: string;
+            driver: string;
+            scope: string;
+            created: string;
+            is_managed: boolean;
+            project_name: string;
+        }>>('/admin/docker/networks'),
+
+    listDockerVolumes: () =>
+        request<Array<{
+            name: string;
+            driver: string;
+            mountpoint: string;
+            created: string;
+            is_managed: boolean;
+            project_name: string;
+        }>>('/admin/docker/volumes'),
+
+    // Users
+    listUsers: () =>
+        request<Array<{
+            id: number;
+            username: string;
+            role: string;
+            deployment_count: number;
+            volume_count: number;
+            env_file_count: number;
+        }>>('/admin/users'),
+
+    getUser: (id: number) =>
+        request<{ id: number; username: string; role: string }>(`/admin/users/${id}`),
+
+    getUserDeployments: (userId: number) =>
+        request<Array<{
+            id: number;
+            project_name: string;
+            status: string;
+            container_count: number;
+            created_at: string;
+        }>>(`/admin/users/${userId}/deployments`),
+
+    getUserVolumes: (userId: number) =>
+        request<Array<{
+            id: number;
+            name: string;
+            volume_name: string;
+            created_at: string;
+        }>>(`/admin/users/${userId}/volumes`),
+
+    getUserEnvFiles: (userId: number) =>
+        request<Array<{
+            id: number;
+            name: string;
+            created_at: string;
+            updated_at: string;
+        }>>(`/admin/users/${userId}/envfiles`),
+
+    getDeploymentContainers: (userId: number, deploymentId: number) =>
+        request<Array<{
+            id: string;
+            name: string;
+            image: string;
+            status: string;
+            state: string;
+        }>>(`/admin/users/${userId}/deployments/${deploymentId}/containers`),
+
+    // Containers
+    listAllContainers: () =>
+        request<Array<{
+            id: string;
+            name: string;
+            image: string;
+            status: string;
+            state: string;
+            owner_id: number;
+            owner_name: string;
+            project_name: string;
+            service_name: string;
+        }>>('/admin/containers'),
+
+    // Tools
+    runSpeedtest: () =>
+        request<{
+            download: number;
+            upload: number;
+            ping: number;
+            server: string;
+        }>('/admin/tools/speedtest', { method: 'POST' }),
+
+    // Cloudflare
+    listCloudflareInstances: () =>
+        request<Array<{
+            id: number;
+            token: string;
+            container_id: string;
+            status: string;
+        }>>('/admin/cloudflare'),
+
+    createCloudflareInstance: (token: string) =>
+        request<{ id: number; message: string }>('/admin/cloudflare', {
+            method: 'POST',
+            body: JSON.stringify({ token }),
+        }),
+
+    startCloudflareInstance: (id: number) =>
+        request<{ message: string; container_id: string }>(`/admin/cloudflare/${id}/start`, {
+            method: 'POST',
+        }),
+
+    stopCloudflareInstance: (id: number) =>
+        request<{ message: string }>(`/admin/cloudflare/${id}/stop`, {
+            method: 'POST',
+        }),
+
+    deleteCloudflareInstance: (id: number) =>
+        request<{ message: string }>(`/admin/cloudflare/${id}`, {
+            method: 'DELETE',
+        }),
+
+    // System
+    getCron: () => request<Array<{
+        id: string;
+        schedule: string;
+        command: string;
+        raw: string;
+    }>>('/admin/system/cron'),
+
+    saveCron: (jobs: Array<{ schedule: string; command: string }>) =>
+        request<{ status: string }>('/admin/system/cron', {
+            method: 'POST',
+            body: JSON.stringify(jobs),
+        }),
+
+    listServices: () =>
+        request<Array<{
+            name: string;
+            load_state: string;
+            active_state: string;
+            sub_state: string;
+            description: string;
+            path: string;
+        }>>('/admin/system/services'),
+
+    createService: (config: {
+        name: string;
+        description: string;
+        exec_start: string;
+        directory: string;
+        user: string;
+        auto_start: boolean;
+    }) =>
+        request<{ status: string }>('/admin/system/services', {
+            method: 'POST',
+            body: JSON.stringify(config),
+        }),
+
+    deleteService: (id: string) =>
+        request<{ status: string }>(`/admin/system/services/${id}`, {
+            method: 'DELETE',
+        }),
+
+    serviceAction: (id: string, action: string) =>
+        request<{ status: string }>(`/admin/system/services/${id}/action`, {
+            method: 'POST',
+            body: JSON.stringify({ action }),
+        }),
+
+    getServiceLogs: (id: string) =>
+        request<{ logs: string }>(`/admin/system/services/${id}/logs`),
+
+    listPorts: () =>
+        request<Array<{
+            protocol: string;
+            port: string;
+            address: string;
+            process: string;
+            pid: string;
+        }>>('/admin/system/ports'),
+
+    listNetworks: () =>
+        request<Array<{
+            name: string;
+            mac: string;
+            ips: string[];
+            flags: string;
+            mtu: number;
+        }>>('/admin/system/networks'),
 };
 
 // WebSocket helper
