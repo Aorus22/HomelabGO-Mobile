@@ -7,15 +7,22 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Text } from '@/components/nativewindui/Text';
 import { Button } from '@/components/nativewindui/Button';
 import { useColorScheme } from '@/lib/useColorScheme';
-import { deploymentsApi, containersApi } from '@/services/api';
+import { deploymentsApi, containersApi, envFilesApi } from '@/services/api';
 
 interface DeploymentDetail {
     id: number;
     project_name: string;
     raw_yaml: string;
     status: string;
+    env_files: Array<{ id: number; name: string }>;
     created_at: string;
     updated_at: string;
+}
+
+interface EnvFileContent {
+    id: number;
+    name: string;
+    content: string;
 }
 
 interface Container {
@@ -34,6 +41,7 @@ export default function DeploymentDetailScreen() {
 
     const [deployment, setDeployment] = React.useState<DeploymentDetail | null>(null);
     const [containers, setContainers] = React.useState<Container[]>([]);
+    const [envFileContents, setEnvFileContents] = React.useState<EnvFileContent[]>([]);
 
     const [isLoading, setIsLoading] = React.useState(true);
     const [refreshing, setRefreshing] = React.useState(false);
@@ -57,6 +65,16 @@ export default function DeploymentDetailScreen() {
                 c => c.project_name === depData.project_name
             );
             setContainers(projectContainers);
+
+            // Fetch env file contents for preview
+            if (depData.env_files && depData.env_files.length > 0) {
+                const envContents = await Promise.all(
+                    depData.env_files.map(ef => envFilesApi.get(ef.id))
+                );
+                setEnvFileContents(envContents);
+            } else {
+                setEnvFileContents([]);
+            }
 
         } catch (error) {
             console.error(error);
@@ -331,6 +349,44 @@ export default function DeploymentDetailScreen() {
                         </View>
                     )}
                 </View>
+
+                {/* Env Files */}
+                {envFileContents.length > 0 && (
+                    <View>
+                        <Text variant="heading" className="mb-3 ml-1">Environment Files</Text>
+                        <View className="gap-3">
+                            {envFileContents.map(ef => (
+                                <View key={ef.id} className="bg-card border border-border rounded-xl overflow-hidden">
+                                    <View className="flex-row items-center justify-between px-4 py-3 border-b border-border bg-zinc-100/50 dark:bg-zinc-800/50">
+                                        <View className="flex-row items-center gap-2">
+                                            <MaterialCommunityIcons name="file-document" size={18} color={colors.primary} />
+                                            <Text className="font-semibold">{ef.name}</Text>
+                                        </View>
+                                        <Pressable
+                                            onPress={() => router.push({ pathname: '/envfiles/[id]' as any, params: { id: ef.id } })}
+                                            className="flex-row items-center gap-1"
+                                        >
+                                            <MaterialCommunityIcons name="pencil" size={16} color={colors.primary} />
+                                            <Text className="text-primary text-sm">Edit</Text>
+                                        </Pressable>
+                                    </View>
+                                    <View className="bg-zinc-900 p-3 max-h-24">
+                                        <Text
+                                            className="font-mono text-xs text-zinc-400 leading-4"
+                                            style={{ fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}
+                                            numberOfLines={4}
+                                        >
+                                            {ef.content || '# Empty'}
+                                        </Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                        <Text variant="caption2" color="tertiary" className="mt-2 ml-1">
+                            Env files will be applied on next deploy/recreate.
+                        </Text>
+                    </View>
+                )}
 
                 {/* YAML Preview */}
                 <View>

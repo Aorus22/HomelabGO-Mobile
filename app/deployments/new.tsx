@@ -8,12 +8,17 @@ import { Text } from '@/components/nativewindui/Text';
 import { Button } from '@/components/nativewindui/Button';
 import { ActivityIndicator } from '@/components/nativewindui/ActivityIndicator';
 import { useColorScheme } from '@/lib/useColorScheme';
-import { deploymentsApi, volumesApi } from '@/services/api';
+import { deploymentsApi, volumesApi, envFilesApi } from '@/services/api';
 
 interface VolumeOption {
     id: number;
     name: string;
     volume_name: string;
+}
+
+interface EnvFileOption {
+    id: number;
+    name: string;
 }
 
 interface ServiceVolume {
@@ -34,6 +39,7 @@ interface Service {
     image: string;
     volumes: ServiceVolume[];
     env: ServiceEnv[];
+    envFileIds: number[];
 }
 
 export default function NewDeploymentScreen() {
@@ -53,14 +59,23 @@ export default function NewDeploymentScreen() {
 
     // GUI State
     const [services, setServices] = React.useState<Service[]>([
-        { id: '1', name: 'app', image: '', volumes: [], env: [] }
+        { id: '1', name: 'app', image: '', volumes: [], env: [], envFileIds: [] }
     ]);
+
+    // Env Files State
+    const [availableEnvFiles, setAvailableEnvFiles] = React.useState<EnvFileOption[]>([]);
+
+    // Env File Modal State  
+    const [isEnvFileModalVisible, setIsEnvFileModalVisible] = React.useState(false);
+    const [envFileSearchQuery, setEnvFileSearchQuery] = React.useState('');
+    const [currentEnvFileServiceId, setCurrentEnvFileServiceId] = React.useState<string | null>(null);
 
     // Raw YAML State (syncs from GUI on tab switch or submit)
     const [rawYaml, setRawYaml] = React.useState(params.initialYaml || '');
 
     React.useEffect(() => {
         loadVolumes();
+        loadEnvFiles();
         if (isEditMode && params.initialYaml) {
             setActiveTab('yaml'); // Default to YAML for edit since GUI might not match perfectly
         }
@@ -74,6 +89,46 @@ export default function NewDeploymentScreen() {
             console.error(e);
         }
     };
+
+    const loadEnvFiles = async () => {
+        try {
+            const envs = await envFilesApi.list();
+            setAvailableEnvFiles(envs);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    // Env File Modal Helpers
+    const openEnvFilePicker = (serviceId: string) => {
+        setCurrentEnvFileServiceId(serviceId);
+        setEnvFileSearchQuery('');
+        setIsEnvFileModalVisible(true);
+    };
+
+    const addEnvFileToService = (envFileId: number) => {
+        if (!currentEnvFileServiceId) return;
+        const s = services.find(x => x.id === currentEnvFileServiceId);
+        if (s && !s.envFileIds.includes(envFileId)) {
+            updateService(currentEnvFileServiceId, 'envFileIds', [...s.envFileIds, envFileId]);
+        }
+        setIsEnvFileModalVisible(false);
+        setCurrentEnvFileServiceId(null);
+    };
+
+    const removeEnvFileFromService = (serviceId: string, envFileId: number) => {
+        const s = services.find(x => x.id === serviceId);
+        if (s) {
+            updateService(serviceId, 'envFileIds', s.envFileIds.filter(id => id !== envFileId));
+        }
+    };
+
+    const filteredEnvFiles = React.useMemo(() => {
+        if (!envFileSearchQuery) return availableEnvFiles;
+        return availableEnvFiles.filter(ef =>
+            ef.name.toLowerCase().includes(envFileSearchQuery.toLowerCase())
+        );
+    }, [availableEnvFiles, envFileSearchQuery]);
 
     const generateYaml = () => {
         let yaml = `version: '3.8'\n\nservices:\n`;
@@ -110,6 +165,12 @@ export default function NewDeploymentScreen() {
                     }
                 });
             }
+
+            // Env Files (custom extension for HomelabGO)
+            if (svc.envFileIds.length > 0) {
+                yaml += `    x-hlgo-envfiles: [${svc.envFileIds.join(', ')}]\n`;
+            }
+
             yaml += `\n`;
         });
 
@@ -165,7 +226,8 @@ export default function NewDeploymentScreen() {
             name: '',
             image: '',
             volumes: [],
-            env: []
+            env: [],
+            envFileIds: []
         }]);
     };
 
@@ -389,6 +451,32 @@ export default function NewDeploymentScreen() {
                                             </View>
                                         ))}
                                     </View>
+
+                                    {/* Env Files */}
+                                    <View>
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <Text variant="caption1" className="font-semibold">Env Files</Text>
+                                            <Pressable onPress={() => openEnvFilePicker(svc.id)} className="flex-row items-center gap-1">
+                                                <MaterialCommunityIcons name="plus-circle" size={16} color={colors.primary} />
+                                                <Text className="text-primary text-xs">Add File</Text>
+                                            </Pressable>
+                                        </View>
+                                        {svc.envFileIds.map(efId => {
+                                            const ef = availableEnvFiles.find(x => x.id === efId);
+                                            return (
+                                                <View key={efId} className="flex-row gap-2 mb-2 items-center bg-background border border-border rounded-lg px-3 py-2">
+                                                    <MaterialCommunityIcons name="file-document" size={16} color={colors.primary} />
+                                                    <Text className="flex-1 text-sm">{ef?.name || `ID: ${efId}`}</Text>
+                                                    <Pressable onPress={() => removeEnvFileFromService(svc.id, efId)}>
+                                                        <MaterialCommunityIcons name="close" size={16} color={colors.grey} />
+                                                    </Pressable>
+                                                </View>
+                                            );
+                                        })}
+                                        {svc.envFileIds.length === 0 && (
+                                            <Text variant="caption2" color="tertiary">No env files attached</Text>
+                                        )}
+                                    </View>
                                 </View>
                             ))}
 
@@ -484,6 +572,66 @@ export default function NewDeploymentScreen() {
                         ListEmptyComponent={() => (
                             <View className="items-center py-12">
                                 <Text className="text-muted-foreground">No volumes found</Text>
+                            </View>
+                        )}
+                    />
+                </SafeAreaView>
+            </Modal>
+
+            {/* Env File Selection Modal */}
+            <Modal
+                visible={isEnvFileModalVisible}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setIsEnvFileModalVisible(false)}
+            >
+                <SafeAreaView className="flex-1 bg-background">
+                    <View className="p-4 border-b border-border flex-row justify-between items-center">
+                        <Text variant="title3" className="font-bold">Select Env File</Text>
+                        <Pressable onPress={() => setIsEnvFileModalVisible(false)}>
+                            <Text className="text-primary font-semibold">Close</Text>
+                        </Pressable>
+                    </View>
+
+                    <View className="p-4 border-b border-border">
+                        <View className="flex-row items-center bg-card rounded-lg px-3 py-2 border border-border">
+                            <MaterialCommunityIcons name="magnify" size={20} color={colors.grey} />
+                            <TextInput
+                                value={envFileSearchQuery}
+                                onChangeText={setEnvFileSearchQuery}
+                                placeholder="Search env files..."
+                                placeholderTextColor={colors.grey}
+                                className="flex-1 ml-2 text-foreground"
+                                style={{ color: colors.foreground }}
+                                autoCorrect={false}
+                            />
+                            {envFileSearchQuery.length > 0 && (
+                                <Pressable onPress={() => setEnvFileSearchQuery('')}>
+                                    <MaterialCommunityIcons name="close-circle" size={16} color={colors.grey} />
+                                </Pressable>
+                            )}
+                        </View>
+                    </View>
+
+                    <FlatList
+                        data={filteredEnvFiles}
+                        keyExtractor={item => item.id.toString()}
+                        contentContainerClassName="p-4"
+                        renderItem={({ item }) => (
+                            <Pressable
+                                onPress={() => addEnvFileToService(item.id)}
+                                className="p-4 flex-row items-center justify-between border-b border-border active:bg-zinc-100 dark:active:bg-zinc-800"
+                            >
+                                <View className="flex-row items-center gap-3">
+                                    <MaterialCommunityIcons name="file-document" size={20} color={colors.primary} />
+                                    <Text className="font-semibold text-base">{item.name}</Text>
+                                </View>
+                                <MaterialCommunityIcons name="plus" size={20} color={colors.grey} />
+                            </Pressable>
+                        )}
+                        ListEmptyComponent={() => (
+                            <View className="items-center py-12">
+                                <Text className="text-muted-foreground">No env files found</Text>
                             </View>
                         )}
                     />

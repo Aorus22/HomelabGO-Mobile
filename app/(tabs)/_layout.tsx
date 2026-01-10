@@ -49,11 +49,11 @@ export default function TabsLayout() {
                 }}
             />
             <Tabs.Screen
-                name="containers"
+                name="envfiles"
                 options={{
-                    title: 'Containers',
+                    title: 'Env Files',
                     tabBarIcon: ({ color, size }) => (
-                        <MaterialCommunityIcons name="docker" size={size} color={color} />
+                        <MaterialCommunityIcons name="file-document-edit" size={size} color={color} />
                     ),
                 }}
             />
