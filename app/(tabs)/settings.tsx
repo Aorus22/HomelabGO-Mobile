@@ -9,7 +9,8 @@ import { Toggle } from '@/components/nativewindui/Toggle';
 import { ThemeToggle } from '@/components/nativewindui/ThemeToggle';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useAuth } from '@/context/auth';
-import { cloudflareApi } from '@/services/api';
+import { cloudflareApi, API_BASE_URL, serverStorage } from '@/services/api';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 export default function SettingsScreen() {
     const { colors, isDarkColorScheme } = useColorScheme();
@@ -20,6 +21,11 @@ export default function SettingsScreen() {
     const [cfRunning, setCfRunning] = React.useState(false);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSaving, setIsSaving] = React.useState(false);
+    const [serverUrl, setServerUrl] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        serverStorage.get().then(url => setServerUrl(url || API_BASE_URL));
+    }, []);
 
     const fetchCloudflareStatus = async () => {
         try {
@@ -95,6 +101,20 @@ export default function SettingsScreen() {
                     <View>
                         <Text variant="body" className="font-semibold">{user?.username || 'User'}</Text>
                         <Text variant="caption1" color="tertiary" className="capitalize">{user?.role || 'user'}</Text>
+                    </View>
+                </View>
+            </View>
+
+            {/* Server Connection */}
+            <View className="bg-card border border-border rounded-xl p-4">
+                <Text variant="footnote" color="tertiary" className="mb-3">Server</Text>
+                <View className="flex-row items-center gap-3">
+                    <MaterialCommunityIcons name="server" size={20} color={colors.primary} />
+                    <View className="flex-1">
+                        <Text variant="caption1" color="tertiary">Connected to</Text>
+                        <Text variant="body" className="font-medium" numberOfLines={1}>
+                            {serverUrl?.replace(/^https?:\/\//, '') || 'Loading...'}
+                        </Text>
                     </View>
                 </View>
             </View>

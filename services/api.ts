@@ -113,6 +113,9 @@ export const authApi = {
             method: 'POST',
             body: JSON.stringify({ username, password }),
         }),
+
+    me: () =>
+        request<{ id: number; username: string; role: string }>('/auth/me'),
 };
 
 // System API
@@ -192,17 +195,18 @@ export const deploymentsApi = {
         project_name: string;
         raw_yaml: string;
         status: string;
+        env_files: Array<{ id: number; name: string }>;
         created_at: string;
         updated_at: string;
     }>(`/deployments/${id}`),
 
-    create: (project_name: string, raw_yaml: string) =>
+    create: (project_name: string, raw_yaml: string, env_file_ids?: number[]) =>
         request<{ id: number; project_name: string; status: string }>('/deployments', {
             method: 'POST',
-            body: JSON.stringify({ project_name, raw_yaml }),
+            body: JSON.stringify({ project_name, raw_yaml, env_file_ids }),
         }),
 
-    update: (id: number, data: { project_name?: string; raw_yaml?: string }) =>
+    update: (id: number, data: { project_name?: string; raw_yaml?: string; env_file_ids?: number[] }) =>
         request(`/deployments/${id}`, {
             method: 'PUT',
             body: JSON.stringify(data),
@@ -395,6 +399,39 @@ export const cloudflareApi = {
     }>('/cloudflare/status'),
 
     getLogs: (tail = 100) => request<{ logs: string }>(`/cloudflare/logs?tail=${tail}`),
+};
+
+// Env Files API
+export const envFilesApi = {
+    list: () => request<Array<{
+        id: number;
+        name: string;
+        created_at: string;
+        updated_at: string;
+    }>>('/envfiles'),
+
+    get: (id: number) => request<{
+        id: number;
+        name: string;
+        content: string;
+        created_at: string;
+        updated_at: string;
+    }>(`/envfiles/${id}`),
+
+    create: (name: string, content: string) =>
+        request<{ id: number; name: string; content: string }>('/envfiles', {
+            method: 'POST',
+            body: JSON.stringify({ name, content }),
+        }),
+
+    update: (id: number, data: { name?: string; content?: string }) =>
+        request<{ id: number; name: string; content: string }>(`/envfiles/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+
+    delete: (id: number) =>
+        request<{ message: string }>(`/envfiles/${id}`, { method: 'DELETE' }),
 };
 
 // WebSocket helper

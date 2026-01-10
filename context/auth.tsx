@@ -78,11 +78,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const storedToken = await tokenStorage.get();
             if (storedToken) {
                 setToken(storedToken);
-                // Ideally verify token or get user profile here
-                // For now assume valid until 401
                 setIsAuthenticated(true);
-                // You might want to fetch user profile here if the API supports it
-                // setUser({ username: 'User' }); 
+                // Fetch user profile
+                try {
+                    const userData = await authApi.me();
+                    setUser(userData as User);
+                } catch (e) {
+                    // Token might be invalid, logout
+                    console.error('Failed to fetch user profile', e);
+                    await logout();
+                }
             }
         } catch (e) {
             console.error('Failed to load token', e);
