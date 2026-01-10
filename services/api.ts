@@ -677,6 +677,48 @@ export const adminApi = {
             flags: string;
             mtu: number;
         }>>('/admin/system/networks'),
+
+    listProcesses: () =>
+        request<Array<{
+            pid: string;
+            user: string;
+            cpu: string;
+            memory: string;
+            command: string;
+        }>>('/admin/system/processes'),
+
+    killProcess: (pid: string) =>
+        request(`/admin/system/processes/${pid}`, {
+            method: 'DELETE',
+        }),
+
+    getFirewall: () =>
+        request<{
+            status: string; // active, inactive
+            rules: Array<{
+                index: string;
+                to: string;
+                action: string;
+                from: string;
+            }>;
+        }>('/admin/system/firewall'),
+
+    toggleFirewall: (enable: boolean) =>
+        request('/admin/system/firewall/toggle', {
+            method: 'POST',
+            body: JSON.stringify({ enable }),
+        }),
+
+    addFirewallRule: (port: string, proto: string, action: string) =>
+        request('/admin/system/firewall/rules', {
+            method: 'POST',
+            body: JSON.stringify({ port, proto, action }),
+        }),
+
+    deleteFirewallRule: (index: string) =>
+        request(`/admin/system/firewall/rules/${index}`, {
+            method: 'DELETE',
+        }),
 };
 
 // WebSocket helper

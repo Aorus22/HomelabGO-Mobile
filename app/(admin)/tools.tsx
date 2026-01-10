@@ -20,6 +20,14 @@ export default function AdminToolsScreen() {
 
     const tools: Tool[] = [
         {
+            id: 'processes',
+            name: 'Process Manager',
+            description: 'Monitor and kill processes',
+            icon: 'pulse',
+            color: '#ef4444',
+            route: '/admin/tools/processes',
+        },
+        {
             id: 'speedtest',
             name: 'Speedtest',
             description: 'Test internet connection speed',
@@ -74,6 +82,14 @@ export default function AdminToolsScreen() {
             icon: 'access-point-network',
             color: '#14b8a6',
             route: '/admin/tools/network-interfaces',
+        },
+        {
+            id: 'firewall',
+            name: 'Firewall Manager',
+            description: 'Manage UFW rules and status',
+            icon: 'shield-check',
+            color: '#f97316',
+            route: '/admin/tools/firewall',
         },
     ];
 

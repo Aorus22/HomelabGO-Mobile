@@ -12,6 +12,8 @@ export default function AdminToolsLayout() {
             <Stack.Screen name="services" options={{ title: 'System Services' }} />
             <Stack.Screen name="ports" options={{ title: 'Port Manager' }} />
             <Stack.Screen name="network-interfaces" options={{ title: 'Network Interfaces' }} />
+            <Stack.Screen name="processes" options={{ title: 'Process Manager' }} />
+            <Stack.Screen name="firewall" options={{ title: 'Firewall Manager' }} />
         </Stack>
     );
 }

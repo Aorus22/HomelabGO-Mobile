@@ -13,6 +13,14 @@ export default function ToolsMenuScreen() {
 
     const tools = [
         {
+            id: 'processes',
+            name: 'Process Manager',
+            description: 'Monitor and kill processes',
+            icon: 'pulse',
+            color: '#ef4444',
+            route: '/admin/tools/processes'
+        },
+        {
             id: 'ports',
             name: 'Port Manager',
             description: 'View open ports and processes',
