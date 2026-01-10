@@ -719,6 +719,40 @@ export const adminApi = {
         request(`/admin/system/firewall/rules/${index}`, {
             method: 'DELETE',
         }),
+
+    listRcloneRemotes: () =>
+        request<string[]>('/admin/system/rclone/remotes'),
+
+    createRcloneRemote: (name: string, provider: string, config: Record<string, string>) =>
+        request('/admin/system/rclone/remotes', {
+            method: 'POST',
+            body: JSON.stringify({ name, provider, config }),
+        }),
+
+    deleteRcloneRemote: (name: string) =>
+        request(`/admin/system/rclone/remotes/${name}`, {
+            method: 'DELETE',
+        }),
+
+    mountRcloneRemote: (remote: string, path: string) =>
+        request('/admin/system/rclone/mount', {
+            method: 'POST',
+            body: JSON.stringify({ remote, path }),
+        }),
+
+    syncRclone: (source: string, dest: string) =>
+        request('/admin/system/rclone/sync', {
+            method: 'POST',
+            body: JSON.stringify({ source, dest }),
+        }),
+
+    getRcloneStatus: () =>
+        request<{ installed: boolean }>('/admin/system/rclone/status'),
+
+    installRclone: () =>
+        request('/admin/system/rclone/install', {
+            method: 'POST',
+        }),
 };
 
 // WebSocket helper

@@ -91,6 +91,14 @@ export default function AdminToolsScreen() {
             color: '#f97316',
             route: '/admin/tools/firewall',
         },
+        {
+            id: 'rclone',
+            name: 'Rclone Manager',
+            description: 'Cloud storage mounts and sync',
+            icon: 'cloud-sync',
+            color: '#0ea5e9',
+            route: '/admin/tools/rclone',
+        },
     ];
 
     return (
