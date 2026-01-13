@@ -448,6 +448,9 @@ export const adminApi = {
                 is_dir: boolean;
                 size: number;
                 mod_time: string;
+                owner: string;
+                group: string;
+                perm: string;
             }>;
         }>(`/admin/files?path=${encodeURIComponent(path)}`),
 
@@ -463,6 +466,47 @@ export const adminApi = {
         request<{ message: string }>('/admin/files/content', {
             method: 'POST',
             body: JSON.stringify({ path, content }),
+        }),
+
+    createFile: (path: string, content: string = '') =>
+        request<{ message: string; path: string }>('/admin/files/create', {
+            method: 'POST',
+            body: JSON.stringify({ path, content }),
+        }),
+
+    createDirectory: (path: string) =>
+        request<{ message: string; path: string }>('/admin/files/mkdir', {
+            method: 'POST',
+            body: JSON.stringify({ path }),
+        }),
+
+    deleteFile: (path: string) =>
+        request<{ message: string; path: string }>(`/admin/files?path=${encodeURIComponent(path)}`, {
+            method: 'DELETE',
+        }),
+
+    renameFile: (oldPath: string, newPath: string) =>
+        request<{ message: string; path: string }>('/admin/files/rename', {
+            method: 'POST',
+            body: JSON.stringify({ old_path: oldPath, new_path: newPath }),
+        }),
+
+    copyFile: (source: string, destination: string) =>
+        request<{ message: string; destination: string }>('/admin/files/copy', {
+            method: 'POST',
+            body: JSON.stringify({ source, destination }),
+        }),
+
+    moveFile: (source: string, destination: string) =>
+        request<{ message: string; destination: string }>('/admin/files/move', {
+            method: 'POST',
+            body: JSON.stringify({ source, destination }),
+        }),
+
+    chmodFile: (path: string, mode: string) =>
+        request<{ message: string; path: string }>('/admin/files/chmod', {
+            method: 'POST',
+            body: JSON.stringify({ path, mode }),
         }),
 
     // Docker
